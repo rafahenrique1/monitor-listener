@@ -110,6 +110,7 @@ Envie para o tópico `windows/comando/monitor` (ou `macbook/comando/monitor` no 
 | `usbc1` | USB-C 1 (valor DDC: 27) |
 | `usbc2` | USB-C 2 (valor DDC: 28) |
 | `bloquear` ou `lock` | Bloqueia a estação (Win+L) |
+| `extend` ou `estender` | Força modo estendido nos monitores (fix KVM) |
 | `ping` | Responde `pong` no tópico de status |
 | `status` | Publica timestamp no tópico de status |
 | `detect_monitors` | Lista monitores DDC/CI encontrados |

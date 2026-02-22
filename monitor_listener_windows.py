@@ -233,6 +233,28 @@ def bloquear_windows(client: mqtt.Client) -> bool:
         return False
 
 
+def forcar_estender_telas(client: mqtt.Client) -> bool:
+    """Força modo estendido nos monitores (resolve espelhamento após KVM switch)."""
+    try:
+        logger.info("Forcando modo estendido (displayswitch /extend)...")
+        result = subprocess.run(
+            ["displayswitch.exe", "/extend"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode == 0:
+            logger.info("Modo estendido aplicado")
+            client.publish(TOPIC_STATUS, "ok:extend")
+            return True
+        else:
+            logger.warning(f"displayswitch retornou {result.returncode}: {result.stderr}")
+            client.publish(TOPIC_STATUS, f"erro:extend:rc{result.returncode}")
+            return False
+    except Exception as e:
+        logger.error(f"Erro ao forcar extend: {e}")
+        client.publish(TOPIC_STATUS, f"erro:extend:{e}")
+        return False
+
+
 def trocar_input(input_code: int, client: mqtt.Client, monitor_index: int = None) -> bool:
     """Troca o input e publica resultado via MQTT."""
     ok = set_monitor_input(input_code, monitor_index)
@@ -290,6 +312,9 @@ def on_message(client, userdata, msg):
 
     elif payload in ("bloquear", "lock"):
         bloquear_windows(client)
+
+    elif payload in ("extend", "estender"):
+        forcar_estender_telas(client)
 
     elif payload == "ping":
         client.publish(TOPIC_STATUS, "pong")
