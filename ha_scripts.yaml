@@ -1,0 +1,140 @@
+# =============================================================================
+# Scripts Home Assistant - Monitor Listener (MQTT + DDC/CI)
+#
+# Tópicos:
+#   macbook/comando/monitor  → Listener macOS (m1ddc)
+#   windows/comando/monitor  → Listener Windows (dxva2)
+#
+# Ambos os listeners conseguem trocar o input do monitor via DDC/CI.
+# Enviamos para os dois tópicos para redundância.
+# =============================================================================
+
+
+# ---------------------------------------------------------------------------
+# TELA WINDOWS - Apenas troca o monitor para HDMI (Windows)
+# ---------------------------------------------------------------------------
+tela_windows:
+  alias: Tela Windows
+  description: "Troca o input do monitor para Windows (HDMI1) via DDC/CI"
+  icon: mdi:monitor-screenshot
+  sequence:
+    - action: mqtt.publish
+      data:
+        topic: macbook/comando/monitor
+        payload: ir_windows
+        qos: 0
+        retain: false
+    - action: mqtt.publish
+      data:
+        topic: windows/comando/monitor
+        payload: ir_windows
+        qos: 0
+        retain: false
+
+
+# ---------------------------------------------------------------------------
+# TELA MAC - Apenas troca o monitor para DisplayPort (Mac)
+# ---------------------------------------------------------------------------
+tela_mac:
+  alias: Tela Mac
+  description: "Troca o input do monitor para Mac (DisplayPort 1) via DDC/CI"
+  icon: mdi:monitor-screenshot
+  sequence:
+    - action: mqtt.publish
+      data:
+        topic: macbook/comando/monitor
+        payload: ir_mac
+        qos: 0
+        retain: false
+    - action: mqtt.publish
+      data:
+        topic: windows/comando/monitor
+        payload: ir_mac
+        qos: 0
+        retain: false
+
+
+# ---------------------------------------------------------------------------
+# WINDOWS - Switch completo: monitor + KVM + fix display
+# ---------------------------------------------------------------------------
+windows:
+  alias: Windows
+  description: "Muda tudo para Windows: monitor (HDMI) + KVM + força estender telas"
+  icon: mdi:microsoft-windows
+  sequence:
+    - action: mqtt.publish
+      data:
+        topic: macbook/comando/monitor
+        payload: ir_windows
+        qos: 0
+        retain: false
+    - action: mqtt.publish
+      data:
+        topic: windows/comando/monitor
+        payload: ir_windows
+        qos: 0
+        retain: false
+    - action: switch.turn_on
+      target:
+        entity_id: switch.kvm_switch_1
+      data: {}
+    # Espera o KVM estabilizar a conexão com os monitores
+    - delay:
+        seconds: 4
+    # Força modo estendido para corrigir espelhamento após hot-plug
+    - action: mqtt.publish
+      data:
+        topic: windows/comando/monitor
+        payload: extend
+        qos: 0
+        retain: false
+
+
+# ---------------------------------------------------------------------------
+# MAC - Switch completo: monitor + KVM + bloquear Windows
+# ---------------------------------------------------------------------------
+mac:
+  alias: Mac
+  description: "Muda tudo para Mac: monitor (DP) + KVM + bloqueia Windows"
+  icon: mdi:apple
+  sequence:
+    - action: mqtt.publish
+      data:
+        topic: windows/comando/monitor
+        payload: bloquear
+        qos: 0
+        retain: false
+    - delay:
+        milliseconds: 500
+    - action: mqtt.publish
+      data:
+        topic: macbook/comando/monitor
+        payload: ir_mac
+        qos: 0
+        retain: false
+    - action: mqtt.publish
+      data:
+        topic: windows/comando/monitor
+        payload: ir_mac
+        qos: 0
+        retain: false
+    - action: switch.turn_off
+      target:
+        entity_id: switch.kvm_switch_1
+      data: {}
+
+
+# ---------------------------------------------------------------------------
+# BLOQUEAR WINDOWS - Bloqueia a estação via MQTT (Win+L)
+# ---------------------------------------------------------------------------
+bloquear_windows:
+  alias: Bloquear Windows
+  description: "Bloqueia o Windows remotamente via MQTT (Win+L)"
+  icon: mdi:account-cancel
+  sequence:
+    - action: mqtt.publish
+      data:
+        topic: windows/comando/monitor
+        payload: bloquear
+        qos: 0
+        retain: false
