@@ -41,18 +41,19 @@ INPUTS = {
     "dp2": 16,
 }
 
-# Arquivo de lock para evitar múltiplas instâncias
-LOCK_FILE = os.path.join(os.environ.get("APPDATA", ""), "monitor_listener", "listener.lock")
+# Pasta de dados e logs
+APP_DATA_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "monitor_listener")
+os.makedirs(APP_DATA_DIR, exist_ok=True)
+
+LOCK_FILE = os.path.join(APP_DATA_DIR, "listener.lock")
+LOG_FILE = os.path.join(APP_DATA_DIR, "listener.log")
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler(
-            os.path.join(os.environ.get("APPDATA", ""), "monitor_listener", "listener.log"),
-            encoding="utf-8",
-        ),
+        logging.FileHandler(LOG_FILE, encoding="utf-8"),
     ],
 )
 logger = logging.getLogger(__name__)
@@ -335,9 +336,6 @@ def heartbeat_loop(client: mqtt.Client, interval: int = 30):
 
 def main():
     check_single_instance()
-
-    log_dir = os.path.join(os.environ.get("APPDATA", ""), "monitor_listener")
-    os.makedirs(log_dir, exist_ok=True)
 
     logger.info("=" * 50)
     logger.info(f"Monitor Listener WINDOWS iniciando (PID: {os.getpid()})...")

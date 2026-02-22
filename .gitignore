@@ -3,7 +3,5 @@ __pycache__/
 *.pyo
 *.pid
 *.log
-.env
 *.lock
-TelegramCupomMonitor-master/
-Hello World
+.env
