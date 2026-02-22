@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pid
+*.log
+.env
+*.lock
+TelegramCupomMonitor-master/
+Hello World
