@@ -100,6 +100,15 @@ windows:
         payload: ir_windows
         qos: 0
         retain: false
+    - delay:
+        seconds: 3
+    # 5) Reinicia Fifine Control Desk (USB reconectou via KVM)
+    - action: mqtt.publish
+      data:
+        topic: windows/comando/monitor
+        payload: restart_fifine
+        qos: 0
+        retain: false
 
 
 # ---------------------------------------------------------------------------

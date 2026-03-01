@@ -294,6 +294,51 @@ def acordar_windows(client: mqtt.Client) -> bool:
         return False
 
 
+FIFINE_EXE = "Fifine Control Desk.exe"
+
+
+def restart_app(client: mqtt.Client, exe_name: str) -> bool:
+    """Mata e reabre uma aplicação pelo nome do executável."""
+    try:
+        logger.info(f"Reiniciando {exe_name}...")
+        # Descobre o caminho completo antes de matar
+        result = subprocess.run(
+            ["wmic", "process", "where", f"name='{exe_name}'", "get", "ExecutablePath"],
+            capture_output=True, text=True, timeout=10,
+        )
+        exe_path = None
+        for line in (result.stdout or "").strip().split("\n"):
+            line = line.strip()
+            if line and line.lower().endswith(".exe"):
+                exe_path = line
+                break
+
+        # Mata o processo
+        subprocess.run(
+            ["taskkill", "/F", "/IM", exe_name],
+            capture_output=True, timeout=10,
+        )
+        time.sleep(2)
+
+        # Reabre
+        if exe_path and os.path.exists(exe_path):
+            subprocess.Popen(
+                [exe_path],
+                creationflags=0x00000008,  # DETACHED_PROCESS
+            )
+            logger.info(f"{exe_name} reiniciado de {exe_path}")
+            client.publish(TOPIC_STATUS, f"ok:restart:{exe_name}")
+            return True
+        else:
+            logger.warning(f"{exe_name} não encontrado para reabrir (path={exe_path})")
+            client.publish(TOPIC_STATUS, f"erro:restart:path_not_found:{exe_name}")
+            return False
+    except Exception as e:
+        logger.error(f"Erro ao reiniciar {exe_name}: {e}")
+        client.publish(TOPIC_STATUS, f"erro:restart:{e}")
+        return False
+
+
 _SetDisplayConfig = ctypes.windll.user32.SetDisplayConfig
 
 SDC_TOPOLOGY_EXTEND = 0x00000004
@@ -406,6 +451,9 @@ def on_message(client, userdata, msg):
 
     elif payload in ("wake", "acordar"):
         acordar_windows(client)
+
+    elif payload in ("restart_fifine", "fifine"):
+        restart_app(client, FIFINE_EXE)
 
     elif payload == "ping":
         client.publish(TOPIC_STATUS, "pong")
