@@ -55,48 +55,48 @@ tela_mac:
 
 
 # ---------------------------------------------------------------------------
-# WINDOWS - Switch completo: KVM → espera → DDC → extend
+# WINDOWS - Switch completo: wake → KVM → extend → DDC
 #
-# Ordem importa! O KVM faz hot-plug dos 2 monitores no Windows.
-# Se trocar DDC antes do KVM, o Windows recebe os monitores "no meio"
-# da transição e espelha. A ordem certa é:
-#   1. KVM primeiro (Windows recebe os 2 monitores)
-#   2. Espera o hot-plug estabilizar
-#   3. DDC troca o monitor direto
-#   4. Extend força modo estendido (corrige espelhamento)
+# Ordem:
+#   1. Wake acorda o Windows (pode estar em standby parcial)
+#   2. KVM troca (Windows recebe os 2 monitores)
+#   3. Extend força modo estendido via API nativa
+#   4. DDC troca o monitor direto (ROG Strix)
 # ---------------------------------------------------------------------------
 windows:
   alias: Windows
-  description: "Muda tudo para Windows: KVM + monitor (HDMI) + força estender telas"
+  description: "Muda tudo para Windows: wake + KVM + extend + DDC"
   icon: mdi:microsoft-windows
   sequence:
-    # 1) KVM primeiro - Windows recebe os monitores
+    # 1) Acorda o Windows antes de trocar o KVM
+    - action: mqtt.publish
+      data:
+        topic: windows/comando/monitor
+        payload: wake
+        qos: 0
+        retain: false
+    - delay:
+        seconds: 1
+    # 2) KVM troca - Windows recebe os monitores
     - action: switch.turn_on
       target:
         entity_id: switch.kvm_switch_1
       data: {}
-    # 2) Espera Windows detectar os monitores do KVM
     - delay:
-        seconds: 5
-    # 3) Força modo estendido (corrige espelhamento do hot-plug)
+        seconds: 3
+    # 3) Força modo estendido via API nativa
     - action: mqtt.publish
       data:
         topic: windows/comando/monitor
         payload: extend
         qos: 0
         retain: false
-    # 4) DDC troca o monitor direto para HDMI (Windows)
     - delay:
-        seconds: 1
+        milliseconds: 500
+    # 4) DDC troca o monitor direto para HDMI (Windows)
     - action: mqtt.publish
       data:
         topic: macbook/comando/monitor
-        payload: ir_windows
-        qos: 0
-        retain: false
-    - action: mqtt.publish
-      data:
-        topic: windows/comando/monitor
         payload: ir_windows
         qos: 0
         retain: false

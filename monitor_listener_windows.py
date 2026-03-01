@@ -233,6 +233,67 @@ def bloquear_windows(client: mqtt.Client) -> bool:
         return False
 
 
+# ---------------------------------------------------------------------------
+# Manter Windows acordado / acordar antes do KVM
+# ---------------------------------------------------------------------------
+
+ES_CONTINUOUS = 0x80000000
+ES_SYSTEM_REQUIRED = 0x00000001
+ES_DISPLAY_REQUIRED = 0x00000002
+
+_SetThreadExecutionState = ctypes.windll.kernel32.SetThreadExecutionState
+_SendInput = ctypes.windll.user32.SendInput
+
+INPUT_MOUSE = 0
+MOUSEEVENTF_MOVE = 0x0001
+
+
+class MOUSEINPUT(ctypes.Structure):
+    _fields_ = [
+        ("dx", ctypes.wintypes.LONG),
+        ("dy", ctypes.wintypes.LONG),
+        ("mouseData", ctypes.wintypes.DWORD),
+        ("dwFlags", ctypes.wintypes.DWORD),
+        ("time", ctypes.wintypes.DWORD),
+        ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong)),
+    ]
+
+
+class INPUT(ctypes.Structure):
+    _fields_ = [
+        ("type", ctypes.wintypes.DWORD),
+        ("mi", MOUSEINPUT),
+    ]
+
+
+def acordar_windows(client: mqtt.Client) -> bool:
+    """Acorda o Windows e impede que entre em suspensão.
+
+    - SetThreadExecutionState: impede sleep/desligar tela
+    - SendInput com mouse move: acorda de standby parcial
+    """
+    try:
+        logger.info("Acordando Windows...")
+        _SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED)
+        inp = INPUT()
+        inp.type = INPUT_MOUSE
+        inp.mi.dx = 1
+        inp.mi.dy = 1
+        inp.mi.dwFlags = MOUSEEVENTF_MOVE
+        _SendInput(1, ctypes.byref(inp), ctypes.sizeof(inp))
+        time.sleep(0.1)
+        inp.mi.dx = -1
+        inp.mi.dy = -1
+        _SendInput(1, ctypes.byref(inp), ctypes.sizeof(inp))
+        logger.info("Windows acordado")
+        client.publish(TOPIC_STATUS, "ok:wake")
+        return True
+    except Exception as e:
+        logger.error(f"Erro ao acordar: {e}")
+        client.publish(TOPIC_STATUS, f"erro:wake:{e}")
+        return False
+
+
 _SetDisplayConfig = ctypes.windll.user32.SetDisplayConfig
 
 SDC_TOPOLOGY_EXTEND = 0x00000004
@@ -342,6 +403,9 @@ def on_message(client, userdata, msg):
 
     elif payload in ("extend", "estender"):
         forcar_estender_telas(client)
+
+    elif payload in ("wake", "acordar"):
+        acordar_windows(client)
 
     elif payload == "ping":
         client.publish(TOPIC_STATUS, "pong")

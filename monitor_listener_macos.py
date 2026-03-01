@@ -12,8 +12,11 @@ import os
 import signal
 import sys
 import struct
+import threading
 import socket as _socket_module
 from datetime import datetime
+
+TOPIC_WINDOWS_COMANDO = "windows/comando/monitor"
 
 # --- CONFIGURAÇÕES ---
 BROKER = "192.168.68.63"  # IP do seu Raspberry/Home Assistant
