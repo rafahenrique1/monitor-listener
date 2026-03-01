@@ -55,13 +55,39 @@ tela_mac:
 
 
 # ---------------------------------------------------------------------------
-# WINDOWS - Switch completo: monitor + KVM + fix display
+# WINDOWS - Switch completo: KVM → espera → DDC → extend
+#
+# Ordem importa! O KVM faz hot-plug dos 2 monitores no Windows.
+# Se trocar DDC antes do KVM, o Windows recebe os monitores "no meio"
+# da transição e espelha. A ordem certa é:
+#   1. KVM primeiro (Windows recebe os 2 monitores)
+#   2. Espera o hot-plug estabilizar
+#   3. DDC troca o monitor direto
+#   4. Extend força modo estendido (corrige espelhamento)
 # ---------------------------------------------------------------------------
 windows:
   alias: Windows
-  description: "Muda tudo para Windows: monitor (HDMI) + KVM + força estender telas"
+  description: "Muda tudo para Windows: KVM + monitor (HDMI) + força estender telas"
   icon: mdi:microsoft-windows
   sequence:
+    # 1) KVM primeiro - Windows recebe os monitores
+    - action: switch.turn_on
+      target:
+        entity_id: switch.kvm_switch_1
+      data: {}
+    # 2) Espera Windows detectar os monitores do KVM
+    - delay:
+        seconds: 5
+    # 3) Força modo estendido (corrige espelhamento do hot-plug)
+    - action: mqtt.publish
+      data:
+        topic: windows/comando/monitor
+        payload: extend
+        qos: 0
+        retain: false
+    # 4) DDC troca o monitor direto para HDMI (Windows)
+    - delay:
+        seconds: 1
     - action: mqtt.publish
       data:
         topic: macbook/comando/monitor
@@ -72,20 +98,6 @@ windows:
       data:
         topic: windows/comando/monitor
         payload: ir_windows
-        qos: 0
-        retain: false
-    - action: switch.turn_on
-      target:
-        entity_id: switch.kvm_switch_1
-      data: {}
-    # Espera o KVM estabilizar a conexão com os monitores
-    - delay:
-        seconds: 4
-    # Força modo estendido para corrigir espelhamento após hot-plug
-    - action: mqtt.publish
-      data:
-        topic: windows/comando/monitor
-        payload: extend
         qos: 0
         retain: false
 

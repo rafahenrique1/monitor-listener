@@ -233,22 +233,49 @@ def bloquear_windows(client: mqtt.Client) -> bool:
         return False
 
 
+_SetDisplayConfig = ctypes.windll.user32.SetDisplayConfig
+
+SDC_TOPOLOGY_EXTEND = 0x00000004
+SDC_APPLY = 0x00000080
+SDC_SAVE_TO_DATABASE = 0x00000200
+SDC_ALLOW_CHANGES = 0x00000400
+SDC_FORCE_MODE_ENUMERATION = 0x00001000
+
+
 def forcar_estender_telas(client: mqtt.Client) -> bool:
-    """Força modo estendido nos monitores (resolve espelhamento após KVM switch)."""
+    """Força modo estendido via SetDisplayConfig API (mesma API que o HASS.Agent usa).
+
+    Flags:
+      SDC_TOPOLOGY_EXTEND       - define topologia como estendida
+      SDC_APPLY                 - aplica imediatamente
+      SDC_FORCE_MODE_ENUMERATION - força Windows a re-detectar monitores
+      SDC_ALLOW_CHANGES         - permite ajustar resolução/refresh se necessário
+      SDC_SAVE_TO_DATABASE      - salva como configuração padrão
+    """
+    flags = (
+        SDC_TOPOLOGY_EXTEND
+        | SDC_APPLY
+        | SDC_FORCE_MODE_ENUMERATION
+        | SDC_ALLOW_CHANGES
+        | SDC_SAVE_TO_DATABASE
+    )
     try:
-        logger.info("Forcando modo estendido (displayswitch /extend)...")
-        result = subprocess.run(
-            ["displayswitch.exe", "/extend"],
-            capture_output=True, text=True, timeout=10,
-        )
-        if result.returncode == 0:
-            logger.info("Modo estendido aplicado")
+        logger.info("Forcando modo estendido via SetDisplayConfig API...")
+        rc = _SetDisplayConfig(0, None, 0, None, flags)
+        if rc == 0:
+            logger.info("Modo estendido aplicado via API nativa")
             client.publish(TOPIC_STATUS, "ok:extend")
             return True
         else:
-            logger.warning(f"displayswitch retornou {result.returncode}: {result.stderr}")
-            client.publish(TOPIC_STATUS, f"erro:extend:rc{result.returncode}")
-            return False
+            logger.warning(f"SetDisplayConfig retornou erro: {rc}")
+            # Fallback: tenta displayswitch.exe
+            logger.info("Tentando fallback com displayswitch.exe /extend...")
+            subprocess.run(
+                ["displayswitch.exe", "/extend"],
+                capture_output=True, timeout=10,
+            )
+            client.publish(TOPIC_STATUS, f"ok:extend_fallback")
+            return True
     except Exception as e:
         logger.error(f"Erro ao forcar extend: {e}")
         client.publish(TOPIC_STATUS, f"erro:extend:{e}")
