@@ -340,10 +340,27 @@ def on_message(client, userdata, msg):
     if payload == "ir_windows" or payload == "windows":
         logger.info("🖥️ Trocando monitor para Windows (HDMI)...")
         trocar_input("17", client, display_id)  # HDMI 1
+        # Reforço: manda extend para o Windows em rajada para garantir que estenda as telas
+        def _reforco_extend():
+            for delay in (2, 4, 6):
+                time.sleep(delay if delay == 2 else 2)
+                client.publish(TOPIC_WINDOWS_COMANDO, "extend")
+                logger.info(f"📡 Reforço extend enviado para Windows ({delay}s)")
+        threading.Thread(target=_reforco_extend, daemon=True).start()
         
     elif payload == "ir_mac" or payload == "mac":
         logger.info("🍎 Trocando monitor para Mac (DisplayPort)...")
         trocar_input("15", client, display_id)  # DisplayPort 1
+        # Reforço: re-tenta DDC + re-detecta display (monitor pode demorar a responder)
+        def _reforco_mac():
+            for i in range(3):
+                time.sleep(3)
+                logger.info(f"📡 Reforço DDC ir_mac ({(i+1)*3}s)")
+                new_display = detect_external_display()
+                if userdata and new_display:
+                    userdata["display_id"] = new_display
+                trocar_input("15", client, new_display or display_id)
+        threading.Thread(target=_reforco_mac, daemon=True).start()
         
     elif payload == "ir_hdmi1" or payload == "hdmi1":
         trocar_input("17", client, display_id)

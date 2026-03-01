@@ -103,37 +103,41 @@ windows:
 
 
 # ---------------------------------------------------------------------------
-# MAC - Switch completo: monitor + KVM + bloquear Windows
+# MAC - Switch completo: DDC → KVM → reforço DDC no Mac
+#
+# Ordem:
+#   1. Windows faz DDC para DP (Mac) - enquanto ainda tem o monitor
+#   2. KVM troca - Mac recebe os 2 monitores HDMI
+#   3. Mac reforça DDC (re-detecta display + confirma DP)
 # ---------------------------------------------------------------------------
 mac:
   alias: Mac
-  description: "Muda tudo para Mac: monitor (DP) + KVM + bloqueia Windows"
+  description: "Muda tudo para Mac: DDC + KVM + reforço"
   icon: mdi:apple
   sequence:
+    # 1) Windows muda DDC para DP (Mac) enquanto ainda tem o monitor
     - action: mqtt.publish
       data:
         topic: windows/comando/monitor
-        payload: bloquear
+        payload: ir_mac
         qos: 0
         retain: false
     - delay:
         milliseconds: 500
+    # 2) KVM troca - Mac recebe os 2 monitores HDMI
+    - action: switch.turn_on
+      target:
+        entity_id: switch.kvm_switch_1
+      data: {}
+    - delay:
+        seconds: 2
+    # 3) Mac reforça DDC (re-detecta display + confirma DP)
     - action: mqtt.publish
       data:
         topic: macbook/comando/monitor
         payload: ir_mac
         qos: 0
         retain: false
-    - action: mqtt.publish
-      data:
-        topic: windows/comando/monitor
-        payload: ir_mac
-        qos: 0
-        retain: false
-    - action: switch.turn_off
-      target:
-        entity_id: switch.kvm_switch_1
-      data: {}
 
 
 # ---------------------------------------------------------------------------
